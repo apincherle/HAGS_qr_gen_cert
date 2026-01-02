@@ -12,7 +12,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "card_certificate", indexes = {
-    @Index(name = "idx_card_certificate_public_id", columnList = "public_id")
+    @Index(name = "idx_card_certificate_public_id", columnList = "public_id"),
+    @Index(name = "idx_card_certificate_submission_id", columnList = "submission_id"),
+    @Index(name = "idx_card_certificate_customer_id", columnList = "customer_id"),
+    @Index(name = "idx_card_certificate_item_id", columnList = "item_id")
 })
 @Data
 @Builder
@@ -29,6 +32,15 @@ public class CardCertificate {
 
     @Column(name = "serial_number", unique = true, nullable = false, length = 50)
     private String serialNumber;
+
+    @Column(name = "submission_id", nullable = false, length = 36)
+    private String submissionId;
+
+    @Column(name = "customer_id", nullable = false, length = 36)
+    private String customerId;
+
+    @Column(name = "item_id", nullable = false, length = 36)
+    private String itemId;
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default

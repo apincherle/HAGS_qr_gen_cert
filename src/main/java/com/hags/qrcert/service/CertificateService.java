@@ -76,6 +76,9 @@ public class CertificateService {
         CardCertificate certificate = CardCertificate.builder()
             .publicId(publicId)
             .serialNumber(serialNumber)
+            .submissionId(request.getSubmissionId())
+            .customerId(request.getCustomerId())
+            .itemId(request.getItemId())
             .status(request.getStatus() != null ? request.getStatus() : "VERIFIED")
             .cardName(request.getCardName())
             .setName(request.getSetName())
@@ -140,6 +143,9 @@ public class CertificateService {
     @lombok.Data
     @lombok.Builder
     public static class CertificateCreateRequest {
+        private String submissionId;
+        private String customerId;
+        private String itemId;
         private String cardName;
         private String setName;
         private Integer year;

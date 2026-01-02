@@ -3,6 +3,9 @@ CREATE TABLE IF NOT EXISTS card_certificate (
     id BIGSERIAL PRIMARY KEY,
     public_id VARCHAR(32) NOT NULL UNIQUE,
     serial_number VARCHAR(50) NOT NULL UNIQUE,
+    submission_id UUID NOT NULL,
+    customer_id UUID NOT NULL,
+    item_id UUID NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'VERIFIED',
     card_name VARCHAR(255) NOT NULL,
     set_name VARCHAR(255),
@@ -34,5 +37,8 @@ CREATE TABLE IF NOT EXISTS card_image (
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_card_certificate_public_id ON card_certificate(public_id);
+CREATE INDEX IF NOT EXISTS idx_card_certificate_submission_id ON card_certificate(submission_id);
+CREATE INDEX IF NOT EXISTS idx_card_certificate_customer_id ON card_certificate(customer_id);
+CREATE INDEX IF NOT EXISTS idx_card_certificate_item_id ON card_certificate(item_id);
 CREATE INDEX IF NOT EXISTS idx_card_image_certificate_id ON card_image(certificate_id);
 

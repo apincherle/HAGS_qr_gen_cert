@@ -40,6 +40,9 @@ public class QrCertificateController {
             // Convert request to service request
             CertificateService.CertificateCreateRequest createRequest = 
                 CertificateService.CertificateCreateRequest.builder()
+                    .submissionId(request.getSubmissionId())
+                    .customerId(request.getCustomerId())
+                    .itemId(request.getItemId())
                     .cardName(request.getCardName())
                     .setName(request.getSetName())
                     .year(request.getYear())
@@ -63,6 +66,9 @@ public class QrCertificateController {
                 .id(result.getCertificate().getId())
                 .publicId(result.getPublicId())
                 .serialNumber(result.getSerialNumber())
+                .submissionId(result.getCertificate().getSubmissionId())
+                .customerId(result.getCertificate().getCustomerId())
+                .itemId(result.getCertificate().getItemId())
                 .status(result.getCertificate().getStatus())
                 .cardName(result.getCertificate().getCardName())
                 .setName(result.getCertificate().getSetName())
@@ -111,7 +117,7 @@ public class QrCertificateController {
                     "inline; filename=\"" + publicId + ".png\"")
                 .body(resource);
         } catch (RuntimeException e) {
-            log.error("Certificate not found: {}", publicId, e);
+            log.debug("Certificate not found: {}", publicId);
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             log.error("Error retrieving QR code image", e);
@@ -134,6 +140,9 @@ public class QrCertificateController {
                 .id(certificate.getId())
                 .publicId(certificate.getPublicId())
                 .serialNumber(certificate.getSerialNumber())
+                .submissionId(certificate.getSubmissionId())
+                .customerId(certificate.getCustomerId())
+                .itemId(certificate.getItemId())
                 .status(certificate.getStatus())
                 .cardName(certificate.getCardName())
                 .setName(certificate.getSetName())
@@ -150,7 +159,7 @@ public class QrCertificateController {
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            log.error("Certificate not found: {}", publicId, e);
+            log.debug("Certificate not found: {}", publicId);
             return ResponseEntity.notFound().build();
         }
     }
@@ -158,6 +167,9 @@ public class QrCertificateController {
     // Request/Response DTOs
     @Data
     public static class CertificateGenerateRequest {
+        private String submissionId;
+        private String customerId;
+        private String itemId;
         private String cardName;
         private String setName;
         private Integer year;
@@ -179,6 +191,9 @@ public class QrCertificateController {
         private Long id;
         private String publicId;
         private String serialNumber;
+        private String submissionId;
+        private String customerId;
+        private String itemId;
         private String status;
         private String cardName;
         private String setName;
