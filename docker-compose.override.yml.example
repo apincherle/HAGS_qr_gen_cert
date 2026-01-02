@@ -1,0 +1,14 @@
+# Example override file for local development
+# Copy this to docker-compose.override.yml and customize as needed
+version: '3.8'
+
+services:
+  qr-certificate-app:
+    environment:
+      - QR_BASE_URL=http://localhost:8019
+      - QR_CERT_SECRET=your-secret-key-here
+      - SPRING_JPA_SHOW_SQL=true
+    volumes:
+      # Mount local static directory for easier access to generated QR codes
+      - ./static/qrs:/app/static/qrs
+

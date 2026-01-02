@@ -1,0 +1,13 @@
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+*.log
+static/qrs/
+static/labels/
+.DS_Store
+Thumbs.db
+README.md
+API_EXAMPLES.md
+

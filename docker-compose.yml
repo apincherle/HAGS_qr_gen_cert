@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  qr-certificate-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qr-certificate-system
+    ports:
+      - "8019:8019"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://host.docker.internal:5432/hags_customer}
+      - SPRING_DATASOURCE_USERNAME=hags_user
+      - SPRING_DATASOURCE_PASSWORD=hags_password
+      - SERVER_PORT=8019
+      - QR_BASE_URL=${QR_BASE_URL:-https://www.hags-grading.co.uk}
+      - QR_CERT_SECRET=${QR_CERT_SECRET:-change-me-please}
+      - QR_STORAGE_PATH=/app/static/qrs
+      - QR_SERIAL_PREFIX=${QR_SERIAL_PREFIX:-HAGS}
+    volumes:
+      - qr_storage:/app/static/qrs
+    networks:
+      - hags-network
+    restart: unless-stopped
+
+volumes:
+  qr_storage:
+
+networks:
+  hags-network:
+    driver: bridge
+
