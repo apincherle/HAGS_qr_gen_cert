@@ -5,9 +5,7 @@ version: '3.8'
 services:
   qr-certificate-app:
     environment:
-      - QR_BASE_URL=http://localhost:8019
-      - QR_CERT_SECRET=your-secret-key-here
-      - SPRING_JPA_SHOW_SQL=true
+      - QR_STORAGE_PATH=/app/static/qrs
     volumes:
       # Mount local static directory for easier access to generated QR codes
       - ./static/qrs:/app/static/qrs

@@ -1,5 +1,6 @@
 package com.hags.qrcert.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
@@ -11,19 +12,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,69 +29,17 @@ import java.util.Map;
 public class QrCodeService {
 
     private final QrCertificateProperties properties;
+    private final ObjectMapper objectMapper;
 
-    /**
-     * Generates a certificate URL with optional signature
-     */
-    public String generateCertificateUrl(String publicId, boolean signed) {
-        String baseUrl = properties.getBaseUrl().endsWith("/") 
-            ? properties.getBaseUrl().substring(0, properties.getBaseUrl().length() - 1)
-            : properties.getBaseUrl();
-        
-        if (!signed) {
-            return baseUrl + "/c/" + publicId;
-        }
-        
-        String signature = signPublicId(publicId);
-        return baseUrl + "/c/" + publicId + "?sig=" + signature;
-    }
-
-    /**
-     * Signs a public ID using HMAC-SHA256
-     */
-    public String signPublicId(String publicId) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(
-                properties.getSecret().getBytes("UTF-8"), 
-                "HmacSHA256"
-            );
-            mac.init(secretKey);
-            byte[] hash = mac.doFinal(publicId.getBytes("UTF-8"));
-            // Use first 16 bytes, URL-safe base64, remove padding
-            String encoded = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(hash);
-            // Take first 16 characters, or full string if shorter
-            String signature = encoded.length() >= 16 ? encoded.substring(0, 16) : encoded;
-            return signature;
-        } catch (NoSuchAlgorithmException | InvalidKeyException | java.io.UnsupportedEncodingException e) {
-            log.error("Error signing public ID", e);
-            throw new RuntimeException("Failed to sign public ID", e);
-        }
-    }
-
-    /**
-     * Verifies a signature for a public ID
-     */
-    public boolean verifySignature(String publicId, String signature) {
-        String expectedSignature = signPublicId(publicId);
-        return expectedSignature.equals(signature);
-    }
-
-    /**
-     * Generates a QR code image and saves it to disk
-     */
     public Path generateQrCodeImage(String url, String publicId) throws IOException, WriterException {
-        // Ensure storage directory exists
         Path storagePath = Paths.get(properties.getQrStoragePath());
         if (!Files.exists(storagePath)) {
             Files.createDirectories(storagePath);
         }
 
-        // Generate QR code
-        int size = 300; // pixels
+        int size = 300;
         int border = 2;
-        
+
         Map<EncodeHintType, Object> hints = new HashMap<>();
         hints.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.M);
         hints.put(EncodeHintType.MARGIN, border);
@@ -102,7 +48,6 @@ public class QrCodeService {
         QRCodeWriter qrCodeWriter = new QRCodeWriter();
         BitMatrix bitMatrix = qrCodeWriter.encode(url, BarcodeFormat.QR_CODE, size, size, hints);
 
-        // Create image
         BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = image.createGraphics();
         graphics.setColor(Color.WHITE);
@@ -118,28 +63,59 @@ public class QrCodeService {
         }
         graphics.dispose();
 
-        // Save image
         Path qrPath = storagePath.resolve(publicId + ".png");
         javax.imageio.ImageIO.write(image, "PNG", qrPath.toFile());
-        
+
         log.info("QR code generated and saved to: {}", qrPath);
         return qrPath;
     }
 
-    /**
-     * Gets the path to an existing QR code image
-     */
+    public Path saveQrUrlReference(String qrId, String url) throws IOException {
+        Path storagePath = Paths.get(properties.getQrStoragePath());
+        if (!Files.exists(storagePath)) {
+            Files.createDirectories(storagePath);
+        }
+
+        Path referencePath = storagePath.resolve(qrId + ".json");
+        QrReference metadata = new QrReference(
+                qrId,
+                url,
+                "/api/qr-certificate/qr/generic/" + qrId,
+                qrId + ".png",
+                Instant.now().toString()
+        );
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(referencePath.toFile(), metadata);
+
+        log.info("QR URL reference saved to: {}", referencePath);
+        return referencePath;
+    }
+
+    public Path getQrUrlReferencePath(String qrId) {
+        Path storagePath = Paths.get(properties.getQrStoragePath());
+        return storagePath.resolve(qrId + ".json");
+    }
+
+    public Optional<QrReference> readQrUrlReference(String qrId) throws IOException {
+        Path referencePath = getQrUrlReferencePath(qrId);
+        if (!Files.exists(referencePath)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(objectMapper.readValue(referencePath.toFile(), QrReference.class));
+    }
+
     public Path getQrCodeImagePath(String publicId) {
         Path storagePath = Paths.get(properties.getQrStoragePath());
         return storagePath.resolve(publicId + ".png");
     }
 
-    /**
-     * Checks if a QR code image exists
-     */
-    public boolean qrCodeImageExists(String publicId) {
-        Path qrPath = getQrCodeImagePath(publicId);
-        return Files.exists(qrPath);
+    public record QrReference(
+            String qrId,
+            String sourceUrl,
+            String imageUrl,
+            String imageFile,
+            String createdAt
+    ) {
     }
 }
 

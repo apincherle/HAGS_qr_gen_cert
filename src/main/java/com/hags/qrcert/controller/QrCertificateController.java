@@ -1,7 +1,5 @@
 package com.hags.qrcert.controller;
 
-import com.hags.qrcert.entity.CardCertificate;
-import com.hags.qrcert.service.CertificateService;
 import com.hags.qrcert.service.QrCodeService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +14,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/qr-certificate")
@@ -25,187 +24,88 @@ import java.util.List;
 @Slf4j
 public class QrCertificateController {
 
-    private final CertificateService certificateService;
     private final QrCodeService qrCodeService;
+    private static final Pattern REFERENCE_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
 
-    /**
-     * POST /api/qr-certificate/generate
-     * Creates a new certificate and generates QR code
-     */
-    @PostMapping("/generate")
-    public ResponseEntity<CertificateResponse> generateCertificate(
-            @RequestBody CertificateGenerateRequest request) {
-        
+    @PostMapping(value = "/generate-url-qr/image", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<Resource> generateUrlQrCodeImage(@RequestBody GenericQrRequest request) {
         try {
-            // Convert request to service request
-            CertificateService.CertificateCreateRequest createRequest = 
-                CertificateService.CertificateCreateRequest.builder()
-                    .submissionId(request.getSubmissionId())
-                    .customerId(request.getCustomerId())
-                    .itemId(request.getItemId())
-                    .cardName(request.getCardName())
-                    .setName(request.getSetName())
-                    .year(request.getYear())
-                    .cardNumber(request.getCardNumber())
-                    .variant(request.getVariant())
-                    .grade(request.getGrade())
-                    .graderVersion(request.getGraderVersion())
-                    .gradedAt(request.getGradedAt() != null ? request.getGradedAt() : LocalDateTime.now())
-                    .notesPublic(request.getNotesPublic())
-                    .notesInternal(request.getNotesInternal())
-                    .checksumSha256(request.getChecksumSha256())
-                    .status(request.getStatus())
-                    .images(request.getImages())
-                    .build();
+            if (!isValidRequest(request)) {
+                return ResponseEntity.badRequest().build();
+            }
 
-            CertificateService.CertificateCreationResult result = 
-                certificateService.createCertificate(createRequest);
+            String qrId = resolveQrId(request.getQrId());
+            Path qrPath = qrCodeService.generateQrCodeImage(request.getUrl(), qrId);
+            qrCodeService.saveQrUrlReference(qrId, request.getUrl());
 
-            // Build response
-            CertificateResponse response = CertificateResponse.builder()
-                .id(result.getCertificate().getId())
-                .publicId(result.getPublicId())
-                .serialNumber(result.getSerialNumber())
-                .submissionId(result.getCertificate().getSubmissionId())
-                .customerId(result.getCertificate().getCustomerId())
-                .itemId(result.getCertificate().getItemId())
-                .status(result.getCertificate().getStatus())
-                .cardName(result.getCertificate().getCardName())
-                .setName(result.getCertificate().getSetName())
-                .year(result.getCertificate().getYear())
-                .cardNumber(result.getCertificate().getCardNumber())
-                .variant(result.getCertificate().getVariant())
-                .grade(result.getCertificate().getGrade())
-                .graderVersion(result.getCertificate().getGraderVersion())
-                .gradedAt(result.getCertificate().getGradedAt())
-                .notesPublic(result.getCertificate().getNotesPublic())
-                .certificateUrl(result.getCertificateUrl())
-                .qrImageUrl("/api/qr-certificate/qr/" + result.getPublicId())
-                .build();
-
-            return ResponseEntity.ok(response);
+            Resource resource = new FileSystemResource(qrPath);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + qrId + ".png\"")
+                    .body(resource);
         } catch (Exception e) {
-            log.error("Error generating certificate", e);
+            log.error("Error generating URL QR image response", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    /**
-     * GET /api/qr-certificate/qr/{publicId}
-     * Returns the QR code image for a certificate
-     */
-    @GetMapping("/qr/{publicId}")
-    public ResponseEntity<Resource> getQrCodeImage(@PathVariable String publicId) {
+    @GetMapping("/qr/generic/{qrId}")
+    public ResponseEntity<Resource> getGenericQrCodeImage(@PathVariable String qrId) {
         try {
-            // Verify certificate exists
-            CardCertificate certificate = certificateService.findByPublicId(publicId);
-            
-            // Get QR code image path
-            Path qrPath = qrCodeService.getQrCodeImagePath(publicId);
-            
+            Path qrPath = qrCodeService.getQrCodeImagePath(qrId);
             if (!Files.exists(qrPath)) {
-                // Generate QR code if it doesn't exist
-                String certificateUrl = qrCodeService.generateCertificateUrl(publicId, true);
-                qrPath = qrCodeService.generateQrCodeImage(certificateUrl, publicId);
+                return ResponseEntity.notFound().build();
             }
 
             Resource resource = new FileSystemResource(qrPath);
-            
             return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .header(HttpHeaders.CONTENT_DISPOSITION, 
-                    "inline; filename=\"" + publicId + ".png\"")
-                .body(resource);
-        } catch (RuntimeException e) {
-            log.debug("Certificate not found: {}", publicId);
-            return ResponseEntity.notFound().build();
+                    .contentType(MediaType.IMAGE_PNG)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + qrId + ".png\"")
+                    .body(resource);
         } catch (Exception e) {
-            log.error("Error retrieving QR code image", e);
+            log.error("Error retrieving generic QR code image", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    /**
-     * GET /api/qr-certificate/{publicId}
-     * Returns certificate details
-     */
-    @GetMapping("/{publicId}")
-    public ResponseEntity<CertificateResponse> getCertificate(@PathVariable String publicId) {
+    @GetMapping("/qr/generic/{qrId}/url")
+    public ResponseEntity<Map<String, String>> getGenericQrCodeUrl(@PathVariable String qrId) {
         try {
-            CardCertificate certificate = certificateService.findByPublicId(publicId);
-            
-            String certificateUrl = qrCodeService.generateCertificateUrl(publicId, true);
-            
-            CertificateResponse response = CertificateResponse.builder()
-                .id(certificate.getId())
-                .publicId(certificate.getPublicId())
-                .serialNumber(certificate.getSerialNumber())
-                .submissionId(certificate.getSubmissionId())
-                .customerId(certificate.getCustomerId())
-                .itemId(certificate.getItemId())
-                .status(certificate.getStatus())
-                .cardName(certificate.getCardName())
-                .setName(certificate.getSetName())
-                .year(certificate.getYear())
-                .cardNumber(certificate.getCardNumber())
-                .variant(certificate.getVariant())
-                .grade(certificate.getGrade())
-                .graderVersion(certificate.getGraderVersion())
-                .gradedAt(certificate.getGradedAt())
-                .notesPublic(certificate.getNotesPublic())
-                .certificateUrl(certificateUrl)
-                .qrImageUrl("/api/qr-certificate/qr/" + publicId)
-                .build();
+            if (!REFERENCE_PATTERN.matcher(qrId).matches()) {
+                return ResponseEntity.badRequest().build();
+            }
 
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            log.debug("Certificate not found: {}", publicId);
-            return ResponseEntity.notFound().build();
+            return qrCodeService.readQrUrlReference(qrId)
+                    .map(meta -> ResponseEntity.ok(Map.of(
+                            "qrId", meta.qrId(),
+                            "url", meta.sourceUrl(),
+                            "imageUrl", meta.imageUrl(),
+                            "imageFile", meta.imageFile(),
+                            "createdAt", meta.createdAt()
+                    )))
+                    .orElseGet(() -> ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            log.error("Error retrieving generic QR URL reference", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    // Request/Response DTOs
     @Data
-    public static class CertificateGenerateRequest {
-        private String submissionId;
-        private String customerId;
-        private String itemId;
-        private String cardName;
-        private String setName;
-        private Integer year;
-        private String cardNumber;
-        private String variant;
-        private Double grade;
-        private String graderVersion;
-        private LocalDateTime gradedAt;
-        private String notesPublic;
-        private String notesInternal;
-        private String checksumSha256;
-        private String status;
-        private List<CertificateService.ImageRequest> images;
+    public static class GenericQrRequest {
+        private String url;
+        private String qrId;
     }
 
-    @lombok.Data
-    @lombok.Builder
-    public static class CertificateResponse {
-        private Long id;
-        private String publicId;
-        private String serialNumber;
-        private String submissionId;
-        private String customerId;
-        private String itemId;
-        private String status;
-        private String cardName;
-        private String setName;
-        private Integer year;
-        private String cardNumber;
-        private String variant;
-        private Double grade;
-        private String graderVersion;
-        private LocalDateTime gradedAt;
-        private String notesPublic;
-        private String certificateUrl;
-        private String qrImageUrl;
+    private boolean isValidRequest(GenericQrRequest request) {
+        if (request == null || request.getUrl() == null || request.getUrl().isBlank()) {
+            return false;
+        }
+        String qrId = resolveQrId(request.getQrId());
+        return REFERENCE_PATTERN.matcher(qrId).matches();
+    }
+
+    private String resolveQrId(String qrId) {
+        return (qrId == null || qrId.isBlank()) ? UUID.randomUUID().toString() : qrId;
     }
 }
 

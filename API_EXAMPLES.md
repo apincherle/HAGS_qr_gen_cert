@@ -1,117 +1,37 @@
-# API Usage Examples
+# API Examples
 
-## Generate Certificate and QR Code
+## Generate URL QR
 
-### Request
 ```bash
-curl -X POST http://localhost:8019/api/qr-certificate/generate \
+curl -X POST http://localhost:8019/api/qr-certificate/generate-url-qr/image \
   -H "Content-Type: application/json" \
+  -H "accept: image/png" \
   -d '{
-    "cardName": "Charizard",
-    "setName": "Base Set",
-    "year": 1999,
-    "cardNumber": "4",
-    "variant": "Holo",
-    "grade": 9.5,
-    "graderVersion": "v1.0",
-    "notesPublic": "Excellent condition with minimal edge wear",
-    "status": "VERIFIED"
+    "url": "https://example.com/orders/123",
+    "qrId": "order_123"
   }'
 ```
 
-### Response
-```json
-{
-  "id": 1,
-  "publicId": "A1B2C3D4E5F6G7H8",
-  "serialNumber": "HAGS-2026-000001",
-  "status": "VERIFIED",
-  "cardName": "Charizard",
-  "setName": "Base Set",
-  "year": 1999,
-  "cardNumber": "4",
-  "variant": "Holo",
-  "grade": 9.5,
-  "graderVersion": "v1.0",
-  "gradedAt": "2026-01-15T10:30:00",
-  "notesPublic": "Excellent condition with minimal edge wear",
-  "certificateUrl": "https://www.hags-grading.co.uk/c/A1B2C3D4E5F6G7H8?sig=AbCDefGhIjKlMnOp",
-  "qrImageUrl": "/api/qr-certificate/qr/A1B2C3D4E5F6G7H8"
-}
-```
+## Fetch QR Image
 
-## Get QR Code Image
-
-### Request
 ```bash
-curl -O http://localhost:8019/api/qr-certificate/qr/A1B2C3D4E5F6G7H8
+curl -O http://localhost:8019/api/qr-certificate/qr/generic/order_123
 ```
 
-Or open in browser:
-```
-http://localhost:8019/api/qr-certificate/qr/A1B2C3D4E5F6G7H8
-```
+## Fetch URL Mapping
 
-### Response
-Returns a PNG image file of the QR code.
-
-## Get Certificate Details
-
-### Request
 ```bash
-curl http://localhost:8019/api/qr-certificate/A1B2C3D4E5F6G7H8
+curl http://localhost:8019/api/qr-certificate/qr/generic/order_123/url
 ```
 
-### Response
-```json
-{
-  "id": 1,
-  "publicId": "A1B2C3D4E5F6G7H8",
-  "serialNumber": "HAGS-2026-000001",
-  "status": "VERIFIED",
-  "cardName": "Charizard",
-  "setName": "Base Set",
-  "year": 1999,
-  "cardNumber": "4",
-  "variant": "Holo",
-  "grade": 9.5,
-  "graderVersion": "v1.0",
-  "gradedAt": "2026-01-15T10:30:00",
-  "notesPublic": "Excellent condition with minimal edge wear",
-  "certificateUrl": "https://www.hags-grading.co.uk/c/A1B2C3D4E5F6G7H8?sig=AbCDefGhIjKlMnOp",
-  "qrImageUrl": "/api/qr-certificate/qr/A1B2C3D4E5F6G7H8"
-}
-```
-
-## Using with Images (Placeholder)
-
-When photo capture is implemented, you can include images in the request:
+Example response:
 
 ```json
 {
-  "cardName": "Pikachu",
-  "setName": "Base Set",
-  "year": 1999,
-  "cardNumber": "58",
-  "variant": "Standard",
-  "grade": 10.0,
-  "graderVersion": "v1.0",
-  "notesPublic": "Perfect condition",
-  "status": "VERIFIED",
-  "images": [
-    {
-      "kind": "front",
-      "url": "https://cdn.example.com/cards/pikachu-front.jpg",
-      "width": 1200,
-      "height": 1680
-    },
-    {
-      "kind": "back",
-      "url": "https://cdn.example.com/cards/pikachu-back.jpg",
-      "width": 1200,
-      "height": 1680
-    }
-  ]
+  "qrId": "order_123",
+  "url": "https://example.com/orders/123",
+  "imageUrl": "/api/qr-certificate/qr/generic/order_123",
+  "imageFile": "order_123.png",
+  "createdAt": "2026-04-13T12:20:00Z"
 }
 ```
-

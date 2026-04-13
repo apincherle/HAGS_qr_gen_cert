@@ -10,9 +10,6 @@ import org.springframework.context.annotation.Configuration;
 @Getter
 @Setter
 public class QrCertificateProperties {
-    private String baseUrl = "https://www.hags-grading.co.uk";
-    private String secret = "change-me-please";
     private String qrStoragePath = "./static/qrs";
-    private String serialPrefix = "HAGS";
 }
 

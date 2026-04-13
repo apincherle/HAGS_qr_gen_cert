@@ -14,9 +14,9 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
             .info(new Info()
-                .title("QR Certificate System API")
+                .title("Generic QR Generator API")
                 .version("1.0.0")
-                .description("API for generating QR codes and managing card certificates with anti-tamper protection")
+                .description("API for generating QR codes from URLs and storing a URL reference file")
                 .contact(new Contact()
                     .name("HAGS Grading")
                     .url("https://www.hags-grading.co.uk"))
